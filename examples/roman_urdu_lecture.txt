@@ -1,0 +1,11 @@
+Lecture 1: Machine Learning ka Taaruf
+
+Machine learning artificial intelligence ki aik shaakh hai jis mein computer data se seekhta hai. Is mein hum computer ko har qadam ke liye alag rules nahi likh kar dete, balkay usay misaalein dikhate hain.
+
+Supervised learning mein har misaal ke saath sahi jawab bhi diya jata hai, jisay label kehte hain. Misaal ke taur par, agar hum spam email pehchanna chahte hain to har email ke saath likha hota hai ke woh spam hai ya nahi. Model in labels se seekh kar naye emails ke baare mein faisla karta hai.
+
+Unsupervised learning mein data ke saath koi label nahi hota. Is surat mein model khud data mein patterns aur groups talaash karta hai. Clustering is ki aik aam misaal hai, jis mein milte julte data points ko aik group mein rakha jata hai.
+
+Model ko train karne ke liye data ko aam tor par do hisson mein taqseem kiya jata hai. Training data se model seekhta hai, jabke test data se uski karkardagi ko check kiya jata hai. Agar model training data par bohat acha chalta hai lekin naye data par kharab, to isay overfitting kehte hain.
+
+Roman Urdu jaise zabanon ke liye machine learning mushkil hoti hai kyunke in ki koi standard spelling nahi hoti. Aik hi lafz ko log mukhtalif tareeqon se likhte hain, jaise "zaroori", "zaruri" aur "zarori". Is wajah se model ko yeh samajhne mein dushwari hoti hai ke yeh sab aik hi lafz hain.
