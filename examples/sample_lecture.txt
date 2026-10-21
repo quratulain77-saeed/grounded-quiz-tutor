@@ -1,0 +1,11 @@
+Lecture 3: Tokenization in Natural Language Processing
+
+Tokenization is the process of splitting text into smaller units called tokens. These tokens are the basic input units that a language model reads and predicts. Early NLP systems often used whitespace tokenization, which simply splits text wherever there is a space.
+
+Modern language models usually rely on subword tokenization. Byte Pair Encoding (BPE) starts from individual characters and repeatedly merges the most frequent pair of symbols into a new symbol. After many merges, common words become single tokens while rare words are split into several smaller pieces. WordPiece, used by BERT, follows a similar idea but chooses merges that most increase the likelihood of the training data.
+
+Subword tokenizers are trained on a fixed corpus, so they reflect the languages and spelling conventions found in that corpus. When a language is under-represented, its words are split into many more tokens. This increases the cost of processing the text and reduces how much content fits into the model's context window.
+
+Romanized languages, such as Roman Urdu, are especially difficult for tokenizers. Roman Urdu has no standard spelling, so the same word can be written in several different ways. A tokenizer trained mostly on English may split each spelling variant into different sequences of tokens, which makes it harder for the model to recognise that they mean the same thing.
+
+Byte-level models avoid a fixed vocabulary by reading raw bytes instead of subword tokens. They can represent any text, but the resulting sequences are much longer. Recent research explores models that learn their own segmentation during training, grouping bytes into larger units dynamically to combine flexibility with efficiency.
