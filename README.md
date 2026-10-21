@@ -22,7 +22,7 @@ model's account of its own output is faithful, check it.
 
 ## Features
 
-- **Input:** paste text or upload `.txt`, `.md` or `.pdf` lecture notes
+- **Input:** paste text or upload `.txt`, `.md` or `.pdf` lecture notes (English and Roman Urdu examples included)
 - **Quiz generation:** multiple-choice and short-answer questions at mixed difficulty, as structured JSON
 - **Evidence check:** every question is matched against the lecture; ungrounded ones are filtered out
 - **Conversational assessment:** the tutor grades each answer (correct / partially correct / incorrect),
@@ -102,9 +102,21 @@ pytest -q
 - Planned: spoken questions and answers (speech-to-text / text-to-speech) for a voice-based tutor,
   and a small user study comparing grounded and ungrounded quizzes.
 
+## Try it in Roman Urdu
+
+`examples/roman_urdu_lecture.txt` is a short lecture on machine learning written in Roman Urdu, the informal
+Latin-script Urdu used on phones and social media. Paste it into the app to see how open models handle
+non-standard spelling and code-mixing, which is the problem my MPhil research focused on.
+
 ## Author
 
-Quratul Ain Saeed · MPhil in Artificial Intelligence · [GitHub](https://github.com/quratulain77-saeed) ·
-ORCID [0009-0007-2133-4869](https://orcid.org/0009-0007-2133-4869)
+**Quratul Ain Saeed** · MPhil in Artificial Intelligence, University of the Punjab
+
+I work on NLP for low-resource and code-mixed languages, especially Roman Urdu, and on making AI systems
+explainable and trustworthy. I have also taught computer science for over six years, which is why I care
+about AI tools that actually help students learn.
+
+[GitHub](https://github.com/quratulain77-saeed) · ORCID [0009-0007-2133-4869](https://orcid.org/0009-0007-2133-4869) ·
+Related work: [Roman Urdu hate speech detection](https://github.com/quratulain77-saeed/Hate-Speech-detection-in-text)
 
 Licensed under the MIT License.
