@@ -46,59 +46,100 @@ def on_generate(file, text, backend, model, n, keep):
     llm = _llm(backend, model)
     all_qs = generate_quiz(llm, lecture, n=int(n), keep_ungrounded=True)
     kept = all_qs if keep else [q for q in all_qs if q.grounded]
-    state = {"questions": [q.to_dict() for q in kept], "i": 0, "mode": "main", "scores": [],
+    state = {"questions": [q.to_dict() for q in kept], "i": 0, "mode": "main", "scores": [], "results": [],
              "backend": backend, "model": model}
-    first = _render_question(state)
-    return _quiz_table(kept, len(all_qs) - len(kept)), state, first, "", gr.update(visible=bool(kept))
+    radio, box = _widgets(state)
+    msg = "Quiz ready: open the **2 · Take the quiz** tab." if kept else ""
+    return (_quiz_table(kept, len(all_qs) - len(kept)) + ("\n\n" + msg if msg else ""), state,
+            _render_question(state), "", gr.Button(visible=bool(kept)), radio, box)
 
 
 def _render_question(state) -> str:
-    qs = state["questions"]
+    qs = state.get("questions", [])
     if not qs:
-        return ""
+        return "Generate a quiz first (tab 1)."
     if state["i"] >= len(qs):
         total = sum(state["scores"])
-        return f"### Quiz finished\nScore: **{total:.1f} / {len(qs)}**"
+        rows = ["| # | Question | Result |", "|---|---|---|"]
+        for j, (q, r) in enumerate(zip(qs, state["results"]), 1):
+            rows.append(f"| {j} | {q['question']} | {r} |")
+        return f"### Quiz finished\nScore: **{total:.1f} / {len(qs)}**\n\n" + "\n".join(rows)
     q = qs[state["i"]]
     head = f"### Question {state['i'] + 1} of {len(qs)}  ·  {q['difficulty']}\n\n{q['question']}"
-    if q["type"] == "mcq" and q["options"]:
-        head += "\n\n" + "\n".join(f"- {o}" for o in q["options"])
     if state["mode"] == "follow_up":
-        head += f"\n\n**Follow-up:** {state['follow_up']}"
+        head += f"\n\n**Follow-up:** {state['follow_up']}\n\n*Type your answer below.*"
+    elif q["type"] == "mcq" and q["options"]:
+        head += "\n\n*Choose one option, then press **Submit answer**.*"
+    else:
+        head += "\n\n*Type your answer, then press **Submit answer**.*"
     return head
 
 
-def on_answer(answer, state):
+def _widgets(state):
+    """Show clickable options for MCQs, a text box otherwise."""
+    qs = state.get("questions", [])
+    finished = not qs or state["i"] >= len(qs)
+    if finished:
+        return gr.Radio(choices=[], value=None, visible=False), gr.Textbox(value="", visible=False)
+    q = qs[state["i"]]
+    is_mcq = q["type"] == "mcq" and q["options"] and state["mode"] == "main"
+    return (gr.Radio(choices=q["options"] if is_mcq else [], value=None, visible=bool(is_mcq), label="Options"),
+            gr.Textbox(value="", visible=not is_mcq, label="Your answer"))
+
+
+def _view(state, feedback=""):
+    radio, box = _widgets(state)
+    return feedback, state, _render_question(state), radio, box
+
+
+def on_answer(choice, text, state):
     if not state or not state.get("questions") or state["i"] >= len(state["questions"]):
-        return "", state, _render_question(state or {"questions": []}), ""
+        return _view(state or {"questions": []}, "Generate a quiz first, or start a new one.")
     if state["mode"] == "done":
-        return "Press **Next question** to continue.", state, _render_question(state), answer
+        return _view(state, "Press **Next question** to continue.")
     q = Question(**state["questions"][state["i"]])
-    llm = _llm(state["backend"], state["model"])
-    if state["mode"] == "main":
-        a = assess(llm, q, answer)
-        state["scores"].append(a.score)
-        fb = f"**{a.verdict.replace('_', ' ').title()}** (score {a.score:.1f})\n\n{a.feedback}\n\n" \
-             f"> Evidence from the lecture: *{q.source_quote}*"
-        if a.follow_up:
-            state["mode"], state["follow_up"] = "follow_up", a.follow_up
-            fb += "\n\nAnswer the follow-up below, or press **Next question**."
-    else:
-        fq = Question(question=state["follow_up"], answer="(open question: judge using the evidence)",
-                      source_quote=q.source_quote)
-        a = assess(llm, fq, answer)
-        fb = f"**Follow-up: {a.verdict.replace('_', ' ')}**\n\n{a.feedback}"
-        state["mode"] = "done"
-    return fb, state, _render_question(state), ""
+    answer = (choice or "") if (q.type == "mcq" and q.options and state["mode"] == "main") else (text or "")
+    if not answer.strip():
+        return _view(state, "⚠️ Please choose or type an answer first.")
+    try:
+        llm = _llm(state["backend"], state["model"])
+        if state["mode"] == "main":
+            a = assess(llm, q, answer)
+            if q.type == "mcq" and q.options:  # exact, reliable scoring for multiple choice
+                ok = answer.strip() == q.answer.strip()
+                a.verdict, a.score = ("correct", 1.0) if ok else ("incorrect", 0.0)
+                if not ok:
+                    a.feedback = f"The correct answer is: **{q.answer}**. " + a.feedback
+            state["scores"].append(a.score)
+            state["results"].append(f"{a.verdict.replace('_', ' ')} ({a.score:.1f})")
+            fb = (f"## {a.verdict.replace('_', ' ').title()}  (score {a.score:.1f})\n\n{a.feedback}\n\n"
+                  f"> **Evidence from the lecture:** *{q.source_quote}*")
+            if a.follow_up:
+                state["mode"], state["follow_up"] = "follow_up", a.follow_up
+                fb += "\n\nAnswer the **follow-up question** above, or press **Next question**."
+            else:
+                state["mode"] = "done"
+        else:
+            fq = Question(question=state["follow_up"], answer="(open question: judge using the evidence)",
+                          source_quote=q.source_quote)
+            a = assess(llm, fq, answer)
+            fb = f"## Follow-up: {a.verdict.replace('_', ' ')}\n\n{a.feedback}\n\nPress **Next question** to continue."
+            state["mode"] = "done"
+    except Exception as e:  # show problems on the page instead of failing silently
+        return _view(state, f"❌ Grading failed: `{type(e).__name__}: {e}`. Check the Colab output for details.")
+    return _view(state, fb)
 
 
 def on_next(state):
-    if state and state.get("questions"):
-        if state["mode"] == "main" and state["i"] < len(state["questions"]):
-            state["scores"].append(0.0)  # skipped
+    note = ""
+    if state and state.get("questions") and state["i"] < len(state["questions"]):
+        if state["mode"] == "main":
+            state["scores"].append(0.0)
+            state["results"].append("skipped")
+            note = "Previous question skipped (0 points)."
         state["i"] += 1
         state["mode"] = "main"
-    return state, _render_question(state or {"questions": []}), "", ""
+    return _view(state or {"questions": []}, note)
 
 
 def on_export(state):
@@ -130,7 +171,8 @@ with gr.Blocks(title="Grounded Quiz Tutor") as demo:
         export_btn = gr.Button("Export quiz as JSON", visible=False)
         export_file = gr.File(label="Download")
     with gr.Tab("2 · Take the quiz"):
-        q_md = gr.Markdown("Generate a quiz first.")
+        q_md = gr.Markdown("Generate a quiz first (tab 1).")
+        choice = gr.Radio(choices=[], label="Options", visible=False)
         ans = gr.Textbox(label="Your answer", lines=2)
         with gr.Row():
             submit = gr.Button("Submit answer", variant="primary")
@@ -138,10 +180,12 @@ with gr.Blocks(title="Grounded Quiz Tutor") as demo:
         fb_md = gr.Markdown()
 
     gen.click(on_generate, [lecture_file, lecture_text, backend, model, n, keep],
-              [table, state, q_md, fb_md, export_btn])
-    submit.click(on_answer, [ans, state], [fb_md, state, q_md, ans])
-    nxt.click(on_next, [state], [state, q_md, fb_md, ans])
+              [table, state, q_md, fb_md, export_btn, choice, ans])
+    submit.click(lambda: "⏳ Grading your answer…", None, fb_md, queue=False).then(
+        on_answer, [choice, ans, state], [fb_md, state, q_md, choice, ans])
+    nxt.click(on_next, [state], [fb_md, state, q_md, choice, ans])
     export_btn.click(on_export, [state], [export_file])
+
 
 def _in_colab() -> bool:
     try:
